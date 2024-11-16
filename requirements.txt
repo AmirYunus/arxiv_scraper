@@ -1,0 +1,3 @@
+arxiv==2.1.3
+colorama==0.4.6
+pypdf==5.1.0
