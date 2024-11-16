@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     """Parses command-line arguments for downloading papers from arXiv.
 
     Example usage:
-        python main.py --query_list "quantum computing" "machine learning" --markdown True --page_size 50 --delay_seconds 5 --num_retries 3 --max_results 20 --sort_by last_updated_date --output_dir ./downloads
+        python main.py --query_list "quantum computing" "machine learning" --markdown True --page_size 50 --delay_seconds 5 --num_retries 3 --max_results 20 --sort_by last_updated_date
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -132,20 +132,11 @@ def parse_args() -> argparse.Namespace:
         help="Sort results by specified criteria. Default is 'relevance'. Example: --sort_by last_updated_date"
     )
     
-    # Add an argument for the output directory where papers will be saved
-    parser.add_argument(
-        "--output_dir", 
-        type=str,  # Expecting a string input
-        default="documents",  # Default output directory is 'documents'
-        help="Directory where downloaded papers will be saved. Default is 'documents'. Example: --output_dir ./downloads"
-    )
-    
     # Parse the arguments and return them as a Namespace object
     return parser.parse_args()
 
 def convert_pdf_to_markdown(pdf_path: str) -> str:
-    """
-    Convert a PDF file to markdown text format.
+    """Convert a PDF file to markdown text format.
     
     Args:
         pdf_path (str): Path to the PDF file to convert
@@ -156,39 +147,69 @@ def convert_pdf_to_markdown(pdf_path: str) -> str:
     Raises:
         FileNotFoundError: If the PDF file does not exist
         pypdf.errors.PdfReadError: If there are issues reading the PDF
+        
+    Example usage:
+        pdf_path = "papers/quantum_computing/paper1.pdf"
+        try:
+            markdown_text = convert_pdf_to_markdown(pdf_path)
+            with open("papers/quantum_computing/paper1.md", "w") as f:
+                f.write(markdown_text)
+        except (FileNotFoundError, pypdf.errors.PdfReadError) as e:
+            print(f"Error converting PDF: {str(e)}")
     """
     try:
-        # Open the PDF file
+        # Open the PDF file in binary read mode since PDFs are binary files
         with open(pdf_path, 'rb') as pdf_file:
-            # Create PDF reader object using pypdf
-            pdf_reader = pypdf.PdfReader(pdf_file)
+            # Create PDF reader object using pypdf library
+            # This object provides methods to read and extract content from the PDF
+            pdf_reader: pypdf.PdfReader = pypdf.PdfReader(pdf_file)
             
-            # Initialize markdown text
-            markdown_text = ""
+            # Initialize empty string to store the final markdown text
+            # We'll build this up page by page
+            markdown_text: str = ""
             
-            # Extract text from each page
+            # Iterate through each page in the PDF
+            # len(pdf_reader.pages) gives us total number of pages
             for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                text = page.extract_text()
+                # Get the current page object which contains the page's content
+                page: pypdf.PageObject = pdf_reader.pages[page_num]
                 
-                # Add page number as header
+                # Extract raw text from the current page
+                # This preserves the text content but may lose some formatting
+                text: str = page.extract_text()
+                
+                # Add a markdown header for each page number
+                # Using level 2 header (##) to allow for document title as level 1
                 markdown_text += f"\n## Page {page_num + 1}\n\n"
                 
-                # Add page text as paragraphs
-                paragraphs = text.split('\n\n')
+                # Split the page text into paragraphs using double newlines
+                # This helps preserve the document's paragraph structure
+                paragraphs: list[str] = text.split('\n\n')
+                
+                # Process each paragraph individually
                 for paragraph in paragraphs:
-                    # Clean up paragraph text
-                    clean_paragraph = paragraph.replace('\n', ' ').strip()
+                    # Clean up the paragraph text:
+                    # - replace single newlines with spaces (fixes line breaks)
+                    # - strip whitespace from start and end
+                    clean_paragraph: str = paragraph.replace('\n', ' ').strip()
+                    
+                    # Only add non-empty paragraphs to avoid blank lines
                     if clean_paragraph:
+                        # Add the cleaned paragraph with double newline for markdown spacing
                         markdown_text += f"{clean_paragraph}\n\n"
             
+            # Return the complete markdown text after processing all pages
             return markdown_text
             
     except FileNotFoundError:
+        # Handle case where the PDF file doesn't exist at the specified path
         print(f"Error: PDF file not found at {pdf_path}")
+        # Re-raise the exception for the caller to handle
         raise
     except pypdf.errors.PdfReadError as e:
+        # Handle PDF-specific reading errors (corrupted file, invalid format, etc)
         print(f"Error reading PDF file: {str(e)}")
+        # Re-raise the exception for the caller to handle
         raise
 
 def main() -> None:
